@@ -10,7 +10,7 @@ import torch
 
 
 # %%
-env = UnityEnvironment(file_name="./Tennis_Linux/Tennis.x86_64")
+env = UnityEnvironment(file_name="Tennis_Linux/Tennis.x86_64")
 
 # %% Get the default brain
 brain_name = env.brain_names[0]
@@ -42,27 +42,28 @@ config["action_size"] = 2
 config["global_state_size"] = 2 * 24
 config["global_action_size"] = 2 * 2
 config["actor_hidden_sizes"] = [256, 128]
-config["critic_hidden_sizes"] = [256, 512]
-config["actor_lr"] = 1e-5
-config["critic_lr"] = 1e-5
+config["critic_hidden_sizes"] = [256, 128]
+config["actor_lr"] = 1e-4
+config["critic_lr"] = 1e-4
+config["weight_decay"] = 0
 config["device"] = device
-config["tau"] = 1e-1           # mix ratio of soft update
+config["tau"] = 6e-2           # mix ratio of soft update
 config["gamma"] = 0.99          # discount factor
 
 buffer_size = int(1e5)
-batch_size = 512
+batch_size = 256
 
 replay_buffer = ReplayBuffer(buffer_size, batch_size)
 maddpg = MADDPG(config)
 
 max_episodes = 3000
-steps_per_update = 10
+steps_per_update = 1
 
 score_window = deque(maxlen=100)
 
 # OU Noise
 ou_scale = 1.0                    # initial scaling factor
-ou_decay = 0.9995                 # decay of the scaling factor ou_scale
+ou_decay = 1.                 # decay of the scaling factor ou_scale
 ou_mu = 0.0                       # asymptotic mean of the noise
 ou_theta = 0.15                   # magnitude of the drift term
 ou_sigma = 0.20                   # magnitude of the diffusion term
@@ -70,14 +71,16 @@ noise_process = OUNoise(2*2, ou_mu, ou_theta, ou_sigma)
 
 for episode_count in range(max_episodes):                       # play game until max_episodes
     env_info = env.reset(train_mode=False)[brain_name]          # reset the environment    
-    state = env_info.vector_observations                        # get the current state (for each agent)
+    states = env_info.vector_observations                        # get the current state (for each agent)
     scores = np.zeros(num_agents)                               # initialize the score (for each agent)
+
+    noise_process.reset()
 
     step_count = 0
     while True:
         step_count += 1
         # Make a list of local states
-        list_of_local_states = [torch.from_numpy(state[i]).float().to(device) for i in range(state.shape[0])]
+        list_of_local_states = [torch.from_numpy(states[i]).float().to(device) for i in range(states.shape[0])]
 
         # Determine action of each agent and convert to ndarray for env input
         noise = ou_scale * noise_process.get_noise().reshape((1, 4))

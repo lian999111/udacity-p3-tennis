@@ -1,4 +1,4 @@
-from model import Network
+from model import ActorNet, CriticNet
 
 import torch
 import torch.nn.functional as F
@@ -17,19 +17,19 @@ class DDPGAgent:
             config: dict of configuration
         """
 
-        self.local_actor_net = Network(
-            state_size, action_size, config["actor_hidden_sizes"], out_gate=F.tanh, seed=seed).to(config["device"])
-        self.local_critic_net = Network(global_state_size + global_action_size, 1,
-                                        config["critic_hidden_sizes"], seed=seed).to(config["device"])  # note the input size (Q network)
-        self.target_actor_net = Network(
-            state_size, action_size, config["actor_hidden_sizes"], out_gate=F.tanh, seed=seed).to(config["device"])
-        self.target_critic_net = Network(global_state_size + global_action_size, 1,
-                                         config["critic_hidden_sizes"], seed=seed).to(config["device"])  # note the input size (Q network)
+        self.local_actor_net = ActorNet(
+            state_size, action_size, config["actor_hidden_sizes"], seed=seed).to(config["device"])
+        self.local_critic_net = CriticNet(global_state_size, global_action_size,
+                                          config["critic_hidden_sizes"], seed=seed).to(config["device"])  # note the input size (Q network)
+        self.target_actor_net = ActorNet(
+            state_size, action_size, config["actor_hidden_sizes"], seed=seed).to(config["device"])
+        self.target_critic_net = CriticNet(global_state_size, global_action_size,
+                                           config["critic_hidden_sizes"], seed=seed).to(config["device"])  # note the input size (Q network)
 
         self.actor_optimizer = torch.optim.Adam(
             self.local_actor_net.parameters(), lr=config["actor_lr"])
         self.critic_optimizer = torch.optim.Adam(
-            self.local_critic_net.parameters(), lr=config["critic_lr"])
+            self.local_critic_net.parameters(), lr=config["critic_lr"], weight_decay=config["weight_decay"])
 
         self.state_size = state_size
         self.action_size = action_size
@@ -52,7 +52,7 @@ class DDPGAgent:
         if not train_mode:
             actor_net.eval()
 
-        with torch.set_grad_enabled(True):
+        with torch.set_grad_enabled(train_mode):
             action = actor_net(state, add_noise)
 
         if not train_mode:

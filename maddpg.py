@@ -59,29 +59,26 @@ class MADDPG:
 
             # Concatenate actions of agents to make full action
             full_next_actions = torch.cat(next_actions_of_agents, dim=1)
-            # Concatenate full states and full actions to get critic input
-            next_critic_input = torch.cat(
-                (full_next_states, full_next_actions), dim=1)
 
             # The seemingly unnecessary i:i+1 keeps the dimension after slicing
-            q_targets = [rewards[:, i:i+1] + (1 - dones[:, i:i+1]) * gamma * agent.target_critic_net(next_critic_input)
+            q_targets = [rewards[:, i:i+1] + (1 - dones[:, i:i+1]) * gamma * agent.target_critic_net(full_next_states, full_next_actions)
                          for i, agent in enumerate(self.ddpg_agents)]
             # # Each agent has column (batch) of q values in this tensor
             # q_targets = torch.cat(q_targets, dim=1).detach()
 
         ### Q-value ###
-        critic_input = torch.cat((full_states, full_actions), dim=1)
-        q_values = [agent.local_critic_net(critic_input)
+        q_values = [agent.local_critic_net(full_states, full_actions)
                     for agent in self.ddpg_agents]
         # q_values = torch.cat(q_values, dim=1)
 
         for i in range(num_agents):
             agent = self.ddpg_agents[i]
-            agent.critic_optimizer.zero_grad()
             critic_loss = F.mse_loss(q_values[i], q_targets[i].detach())
+
+            agent.critic_optimizer.zero_grad()
             critic_loss.backward()
-            # print('local critic grad: {}'.format(agent.local_critic_net.linear_layers[-1].weight.grad))
-            # print('target critic grad: {}'.format(agent.target_critic_net.linear_layers[-1].weight.grad))
+            # print('local critic grad: {}'.format(agent.local_critic_net.fc3.weight.grad))
+            # print('target critic grad: {}'.format(agent.target_critic_net.fc3.weight.grad))
             agent.critic_optimizer.step()
 
         # [agent.critic_optimizer.zero_grad() for agent in self.ddpg_agents]
@@ -94,29 +91,27 @@ class MADDPG:
                                   for i in range(num_agents)]
 
         actions_of_agents = self.act(local_states_of_agents, local=True, train_mode=True, add_noise=False)
-        # critic_input = torch.cat(actions_of_agents, dim=1)
-        # # Add full states to critic input
-        # critic_input = torch.cat((full_states, critic_input), dim=1)
 
         # Loop over agents and do updates to their actor nets
         for i in range(num_agents):
             agent = self.ddpg_agents[i]
-            agent.actor_optimizer.zero_grad()
             # Start populating critic input with actions 
-            actions_of_agents = [actions if j == i
-                                 else actions.detach()
-                                 for j, actions in enumerate(actions_of_agents)]
-            critic_input = torch.cat(actions_of_agents, dim=1)
-            # Add full states to critic input
-            critic_input = torch.cat((full_states, critic_input), dim=1)
-            actor_loss = -agent.local_critic_net(critic_input).mean()
+            full_actions = [actions if j == i
+                            else actions.detach()
+                            for j, actions in enumerate(actions_of_agents)]
+            full_actions = torch.cat(full_actions, dim=1)
+            actor_loss = - agent.local_critic_net(full_states, full_actions).mean()
+
+            agent.actor_optimizer.zero_grad()
             actor_loss.backward(retain_graph=False)
+            agent.actor_optimizer.step()
+
+            # print('agent {}'.format(i))
             # print('actor grad: {}'.format(agent.local_actor_net.linear_layers[-1].weight.grad))
             # print('actor grad: {}'.format(agent.local_actor_net.std.grad))
             # print(agent.local_actor_net.std)
             # for param in agent.local_actor_net.parameters():
             #     print(param)
-            agent.actor_optimizer.step()
 
             # print('agent {} actor_loss: {}'.format(i, actor_loss.cpu().detach().item()))
 
@@ -124,15 +119,11 @@ class MADDPG:
         
         
 
-        # critic_input = [agent.local_actor_net(local_states)
-        #                 for agent, local_states in zip(self.ddpg_agents, local_states_of_agents)]
-        # critic_input = torch.cat(critic_input, dim=1)
-        # # critic_input = torch.cat(actions_of_agents, dim=1)
-        # # Add full states to critic input
-        # critic_input = torch.cat((full_states, critic_input), dim=1)
-        
+        # actions_of_agents = [agent.local_actor_net(local_states)
+        #                      for agent, local_states in zip(self.ddpg_agents, local_states_of_agents)]
+        # full_actions = torch.cat(actions_of_agents, dim=1)
 
-        # actor_loss = [-agent.local_critic_net(critic_input)
+        # actor_loss = [-agent.local_critic_net(full_states, full_actions)
         #               for agent in self.ddpg_agents]
         # actor_loss = torch.cat(actor_loss, dim=1).mean()
 
