@@ -47,11 +47,11 @@ config["actor_lr"] = 1e-4
 config["critic_lr"] = 1e-4
 config["weight_decay"] = 0
 config["device"] = device
-config["tau"] = 6e-2           # mix ratio of soft update
+config["tau"] = 1e-2            # mix ratio of soft update
 config["gamma"] = 0.99          # discount factor
 
 buffer_size = int(1e5)
-batch_size = 256
+batch_size = 128
 
 replay_buffer = ReplayBuffer(buffer_size, batch_size)
 maddpg = MADDPG(config)
@@ -63,7 +63,7 @@ score_window = deque(maxlen=100)
 
 # OU Noise
 ou_scale = 1.0                    # initial scaling factor
-ou_decay = 1.                 # decay of the scaling factor ou_scale
+ou_decay = 0.9995                 # decay of the scaling factor ou_scale
 ou_mu = 0.0                       # asymptotic mean of the noise
 ou_theta = 0.15                   # magnitude of the drift term
 ou_sigma = 0.20                   # magnitude of the diffusion term
@@ -87,9 +87,7 @@ for episode_count in range(max_episodes):                       # play game unti
         actions = maddpg.act(list_of_local_states, local=True, train_mode=False, add_noise=False)
         actions = [action.detach().cpu().numpy()+noise[:, 2*i:2*i+2] for i, action in enumerate(actions)]
         actions = np.vstack(actions)
-        # actions = np.random.randn(num_agents, action_size) # select an action (for each agent)
-        actions = np.clip(actions, -1, 1)                  # all actions between -1 and 1
-        # print(actions[1][0])
+        actions = np.clip(actions, -1, 1)                       # all actions between -1 and 1
 
         env_info = env.step(actions)[brain_name]                # send all actions to tne environment
         next_states = env_info.vector_observations              # get next state (for each agent)
