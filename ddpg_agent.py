@@ -39,7 +39,7 @@ class DDPGAgent:
 
         self.config = config
     
-    def act(self, state: torch.Tensor, local: bool=False, train_mode: bool=False, add_noise: bool=True):
+    def act(self, state: torch.Tensor, local: bool=False, train_mode: bool=False):
         """Determine action given current state
         Params
         ======
@@ -53,7 +53,7 @@ class DDPGAgent:
             actor_net.eval()
 
         with torch.set_grad_enabled(train_mode):
-            action = actor_net(state, add_noise)
+            action = actor_net(state)
 
         if not train_mode:
             actor_net.train()

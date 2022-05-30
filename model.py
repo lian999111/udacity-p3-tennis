@@ -24,9 +24,6 @@ class ActorNet(nn.Module):
             last_size = size
 
         self.linear_layers.append(nn.Linear(last_size, action_size))
-
-        # Ref: https://discuss.pytorch.org/t/understanding-enropy/34677
-        self.std = nn.Parameter(torch.ones(1, action_size))    # trainable std
         
         self.reset_parameters()
 
@@ -38,7 +35,7 @@ class ActorNet(nn.Module):
         self.linear_layers[-1].weight.data.uniform_(-3e-3, 3e-3)
         # self.linear_layers[-1].bias.data.fill_(0.1)
 
-    def forward(self, input: torch.Tensor, add_noise: bool=False, min=-1, max=1):
+    def forward(self, input: torch.Tensor, min=-1, max=1):
         """Forward pass of the network"""
         x = input
         for layer in self.linear_layers[:-1]:
@@ -47,10 +44,6 @@ class ActorNet(nn.Module):
         # Last layer
         x = self.linear_layers[-1](x)
         x = self.out_gate(x)
-
-        if add_noise:
-            dist = torch.distributions.Normal(x, F.softplus(self.std))
-            x = torch.clamp(dist.rsample(), min=min, max=max)
 
         return x
 
@@ -70,8 +63,6 @@ class CriticNet(nn.Module):
         """Heurisitic initialization of fully connected layers"""
         self.fc1.weight.data.uniform_(*hidden_init(self.fc1))
         self.fc2.weight.data.uniform_(*hidden_init(self.fc2))
-        # torch.nn.init.xavier_uniform_(self.fc1.weight)
-        # torch.nn.init.xavier_uniform_(self.fc2.weight)
         self.fc3.weight.data.uniform_(-3e-3, 3e-3)
 
     def forward(self, state: torch.Tensor, action: torch.Tensor):
