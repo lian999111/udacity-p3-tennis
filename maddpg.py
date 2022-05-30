@@ -48,12 +48,12 @@ class MADDPG:
         # Note that these are batched
         full_states, full_actions, rewards, full_next_states, dones = map(lambda x: torch.from_numpy(x).float().to(device),experiences)
 
-        ############### Critic ###############
-        ### Next Q-value ###
+        ############### Train critic using TD-error ###############
+        ### Q-target ###
         local_next_states_of_agents = [full_next_states[:, i*state_size: (i+1)*state_size]
                                        for i in range(num_agents)]
         with torch.no_grad():
-            # using target actor net for dualing purpose
+            # Get next actions using the target actor network
             next_actions_of_agents = self.act(
                 local_next_states_of_agents, local=False, train_mode=False, add_noise=False)
 
@@ -76,7 +76,7 @@ class MADDPG:
             critic_loss.backward()
             agent.critic_optimizer.step()
 
-        ############### Actor ###############
+        ############### Train actor ###############
         local_states_of_agents = [full_states[:, i*state_size: (i+1)*state_size]
                                   for i in range(num_agents)]
 
