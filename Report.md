@@ -1,5 +1,5 @@
 ## Introduction
-[MADDPG](https://arxiv.org/abs/1706.02275) is used to solve the Reacher problem with continuous control. The repository is structured as follows:
+[MADDPG](https://arxiv.org/abs/1706.02275) is used to solve the Tennis problem with continuous control. The repository is structured as follows:
 
 - `tennis.py`: This is the main python script for training and demonstrating the MADDPG algorithm
 
